@@ -1,23 +1,7 @@
 import { useState } from "react";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { useAuthContext } from "./useAuthContext";
-
-interface JiraTicket {
-  jiraKey: string;
-  jiraUrl: string;
-  actionItem: any;
-}
-
-interface JiraResponse {
-  success: boolean;
-  data?: {
-    createdTickets: JiraTicket[];
-    errors: any[];
-    totalCreated: number;
-    totalErrors: number;
-  };
-  error?: string;
-}
+import { ActionItem, JiraResponse } from "../types/analysis";
 
 export const useJira = () => {
   const [loading, setLoading] = useState(false);
@@ -25,7 +9,7 @@ export const useJira = () => {
   const [response, setResponse] = useState<JiraResponse | null>(null);
   const { user } = useAuthContext();
 
-  const createJiraTickets = async (actionItems: any[]): Promise<JiraResponse> => {
+  const createJiraTickets = async (actionItems: ActionItem[]): Promise<JiraResponse> => {
     if (!user) {
       const errorMessage = "User not authenticated";
       setError(errorMessage);

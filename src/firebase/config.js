@@ -3,12 +3,12 @@ import { getFirestore, Timestamp } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAnGApTsZ8ipE8Nlvl02_zKsdOr7b0wwEA",
-  authDomain: "policy-compass-ce8c0.firebaseapp.com",
-  projectId: "policy-compass-ce8c0",
-  storageBucket: "policy-compass-ce8c0.firebasestorage.app",
-  messagingSenderId: "915077569705",
-  appId: "1:915077569705:web:da3870f9db439236a71db8"
+  apiKey: "AIzaSyAA5n6hIhS_pZkeRlbgXBPgaQQWo6g45sY",
+  authDomain: "policy-compass-parthm.firebaseapp.com",
+  projectId: "policy-compass-parthm",
+  storageBucket: "policy-compass-parthm.firebasestorage.app",
+  messagingSenderId: "821964110611",
+  appId: "1:821964110611:web:29856d8c39c1ce5d7b38e6"
 };
 
 //init firebase

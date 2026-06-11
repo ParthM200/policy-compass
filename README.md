@@ -1,49 +1,159 @@
-# Getting Started with Create React App
+# Policy Compass
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Policy Compass is a web app that analyzes information security policy documents
+(PDF) against the NIST SP 800-171 and ISO/IEC 27001 frameworks, scores their
+compliance, and generates actionable remediation items. Action items can be
+pushed directly to Jira as tickets.
 
-## View Deployed App
-Interact with the application at this link [https://policy-compass-ce8c0.web.app/](https://policy-compass-ce8c0.web.app/)
+**Live app:** https://policy-compass-parthm.web.app/
 
-## Available Scripts
+> The live app serves the frontend, Authentication, and Firestore. The
+> "Analyze" and "Push to Jira" features run on Cloud Functions, which require
+> Firebase's Blaze (pay-as-you-go) plan to deploy - see
+> [Cloud Functions and the Blaze plan](#cloud-functions-and-the-blaze-plan).
+> To use those features for free, run everything locally with the emulators
+> (below).
 
-In the project directory, you can run:
+## How it works
 
-### `npm start`
+1. Sign up / log in (Firebase Authentication).
+2. Upload a PDF policy document - text is extracted client-side with `pdf.js`.
+3. The extracted text is sent to a Cloud Function (`GeminiCall`), which uses
+   Google's Gemini API to score the document and generate a structured
+   compliance report with action items.
+4. Optionally, click "Push to Jira" to create a ticket for each action item via
+   the `CreateJiraTickets` Cloud Function.
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+## Tech stack
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+- React 19 + TypeScript (Create React App)
+- Firebase: Auth, Firestore, Hosting, Cloud Functions (2nd gen)
+- Google Gemini API (`@google/generative-ai`)
+- Jira Cloud REST API
 
-### `npm test`
+## Prerequisites
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+- Node.js 18+ (Cloud Functions run on Node 22)
+- [Firebase CLI](https://firebase.google.com/docs/cli) (`npm install -g firebase-tools`)
+- A Firebase account with access to this project (or your own Firebase
+  project - see [Deploying to your own project](#deploying-to-your-own-project))
 
-### `npm run build`
+## Getting started
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+```bash
+git clone <this-repo>
+cd policy-compass
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+# Frontend dependencies
+npm install
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+# Cloud Functions dependencies
+cd functions && npm install && cd ..
+```
 
-### `npm run eject`
+### Run the frontend
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+```bash
+npm start
+```
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+Opens the app at http://localhost:3000. By default this talks to the live
+Firestore and Authentication in the `policy-compass-parthm` Firebase project,
+so login/signup work immediately. The "Analyze" and "Push to Jira" features
+need the Cloud Functions emulator (below) unless functions have been deployed.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+### Run everything locally (Cloud Functions emulator)
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+This is the recommended way to test the AI analysis and Jira integration -
+it's free and doesn't require the Blaze plan.
 
-## Learn More
+1. Copy `functions/.env.example` to `functions/.env` and fill in:
+   - `GEMINI_API_KEY` - from [Google AI Studio](https://aistudio.google.com/app/apikey)
+     (free tier is sufficient)
+   - `JIRA_URL`, `JIRA_PROJECT_KEY`, `JIRA_EMAIL`, `JIRA_API_TOKEN` - only needed
+     for the "Push to Jira" feature
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+2. Start the emulators:
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+   ```bash
+   firebase emulators:start --only auth,functions,firestore
+   ```
+
+   This serves Auth, Firestore, and Functions emulators with a local UI at
+   http://localhost:4000. (Drop `--only` to also start the Hosting emulator,
+   if port 5000 is free on your machine.)
+
+3. Point the frontend at the emulators by adding to `src/firebase/config.js`:
+
+   ```js
+   import { connectFunctionsEmulator } from "firebase/functions";
+   import { connectFirestoreEmulator } from "firebase/firestore";
+   import { connectAuthEmulator } from "firebase/auth";
+
+   if (process.env.NODE_ENV === "development") {
+     connectFunctionsEmulator(getFunctions(), "localhost", 5001);
+     connectFirestoreEmulator(db, "localhost", 8080);
+     connectAuthEmulator(auth, "http://localhost:9099");
+   }
+   ```
+
+   then run `npm start` in another terminal.
+
+## Deploying
+
+```bash
+firebase login
+firebase deploy --only firestore,hosting
+```
+
+This deploys Hosting and Firestore rules - no billing plan required, and is
+enough for login/signup and the dashboard UI to work.
+
+### Cloud Functions and the Blaze plan
+
+Deploying `GeminiCall` and `CreateJiraTickets` (`firebase deploy --only
+functions`, or a full `firebase deploy`) requires the project to be on the
+[Blaze plan](https://firebase.google.com/pricing), which means adding a
+billing account. Usage for this app stays well within the free monthly quota
+(2M function invocations, Gemini 2.5 Flash free tier), but Firebase requires a
+card on file to enable Blaze. You can set a budget alert in the Google Cloud
+console for peace of mind.
+
+Once on Blaze, set the Cloud Function secrets (once per project):
+
+```bash
+firebase functions:secrets:set GEMINI_API_KEY
+firebase functions:secrets:set JIRA_EMAIL
+firebase functions:secrets:set JIRA_API_TOKEN
+```
+
+`JIRA_URL` and `JIRA_PROJECT_KEY` are read as plain environment variables from
+`functions/.env.<project-id>` (or `functions/.env`) at deploy time - see the
+[Firebase docs on environment configuration](https://firebase.google.com/docs/functions/config-env).
+
+Then deploy everything:
+
+```bash
+firebase deploy
+```
+
+## Deploying to your own project
+
+1. Create a Firebase project and enable Authentication (Email/Password) and
+   Firestore (Functions are optional - see above).
+2. Update `.firebaserc` with your project ID.
+3. Replace the `firebaseConfig` object in `src/firebase/config.js` with your
+   project's web app config (Project Settings -> General -> Your apps).
+4. Run `firebase deploy --only firestore,hosting`, and optionally set up
+   Functions secrets and deploy those too.
+
+## Available scripts
+
+| Command | Description |
+| --- | --- |
+| `npm start` | Run the frontend in development mode |
+| `npm run build` | Build the frontend for production |
+| `npm test` | Run the test suite |
+| `firebase emulators:start --only auth,functions,firestore` | Run Auth/Firestore/Functions emulators locally |
+| `firebase deploy --only firestore,hosting` | Deploy hosting and Firestore rules (no billing plan needed) |
+| `firebase deploy` | Deploy hosting, rules, and functions (requires Blaze plan) |

@@ -11,7 +11,6 @@
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 
 const { setGlobalOptions } = require("firebase-functions");
-const functions = require("firebase-functions");
 
 // Import Gemini AI SDK
 const { GoogleGenerativeAI } = require("@google/generative-ai");
@@ -139,7 +138,7 @@ exports.GeminiCall = onCall(
 
       // Get the generative model with structured output
       const model = genAI.getGenerativeModel({
-        model: "gemini-2.0-flash-exp",
+        model: "gemini-2.5-flash",
         generationConfig: {
           responseMimeType: "application/json",
           responseSchema: responseSchema,
@@ -312,6 +311,7 @@ ${requestData}`;
 exports.CreateJiraTickets = onCall(
   {
     cors: true,
+    secrets: ["JIRA_EMAIL", "JIRA_API_TOKEN"],
   },
   async (request) => {
     const { actionItems } = request.data;
@@ -332,17 +332,17 @@ exports.CreateJiraTickets = onCall(
     }
 
     try {
-      const jiraUrl = "https://pokalaanurag.atlassian.net";
-      const projectKey = "SCRUM";
+      const jiraUrl = process.env.JIRA_URL;
+      const projectKey = process.env.JIRA_PROJECT_KEY;
       const issueType = "Task";
-      
-      const email = functions.config().jira?.email || process.env.JIRA_EMAIL;
-      const apiToken = functions.config().jira?.api_token || process.env.JIRA_API_TOKEN;
 
-      if (!email || !apiToken) {
+      const email = process.env.JIRA_EMAIL;
+      const apiToken = process.env.JIRA_API_TOKEN;
+
+      if (!jiraUrl || !projectKey || !email || !apiToken) {
         throw new HttpsError(
           "failed-precondition",
-          "Jira credentials not configured"
+          "Jira integration not configured. Set JIRA_URL, JIRA_PROJECT_KEY, JIRA_EMAIL, and JIRA_API_TOKEN."
         );
       }
 

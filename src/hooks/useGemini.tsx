@@ -1,25 +1,26 @@
 import { useState } from "react";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { useAuthContext } from "./useAuthContext";
+import { AnalysisData } from "../types/analysis";
 
-interface GeminiRequest {
-  requestData: any;
-  requestType: string;
+export interface GeminiAnalysis {
+  response: AnalysisData;
+  timestamp: string;
 }
 
 interface GeminiResponse {
   success: boolean;
-  data?: any;
+  data?: GeminiAnalysis;
   error?: string;
 }
 
 export const useGemini = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [response, setResponse] = useState<any>(null);
+  const [response, setResponse] = useState<GeminiAnalysis | null>(null);
   const { user } = useAuthContext();
 
-  const callGemini = async (requestData: any): Promise<GeminiResponse> => {
+  const callGemini = async (requestData: string): Promise<GeminiResponse> => {
     if (!user) {
       const errorMessage = "User not authenticated";
       setError(errorMessage);
@@ -34,11 +35,9 @@ export const useGemini = () => {
       const functions = getFunctions();
       const geminiCall = httpsCallable(functions, "GeminiCall");
 
-      const result = await geminiCall({
-        requestData,
-      } as GeminiRequest);
+      const result = await geminiCall({ requestData });
 
-      const responseData = result.data as any;
+      const responseData = result.data as GeminiResponse;
 
       // Validate that we received a valid JSON response
       if (
@@ -50,11 +49,11 @@ export const useGemini = () => {
         );
       }
 
-      setResponse(responseData);
+      setResponse(responseData.data);
 
       setLoading(false);
 
-      return { success: true, data: responseData };
+      return { success: true, data: responseData.data };
     } catch (error: any) {
       let errorMessage = "Failed to call Gemini function";
 

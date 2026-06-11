@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useSignup } from "../../hooks/useSignup";
 
 //styles
@@ -92,7 +93,7 @@ export default function Signup() {
         <div className={styles.footer}>
           <p className={styles.footerText}>
             Already have an account? 
-            <a href="/login" className={styles.link}>Sign in here</a>
+            <Link to="/login" className={styles.link}>Sign in here</Link>
           </p>
         </div>
       </div>
