@@ -7,12 +7,23 @@ pushed directly to Jira as tickets.
 
 **Live app:** https://policy-compass-parthm.web.app/
 
-> The live app serves the frontend, Authentication, and Firestore. The
-> "Analyze" and "Push to Jira" features run on Cloud Functions, which require
-> Firebase's Blaze (pay-as-you-go) plan to deploy - see
-> [Cloud Functions and the Blaze plan](#cloud-functions-and-the-blaze-plan).
-> To use those features for free, run everything locally with the emulators
-> (below).
+## Quick start
+
+```bash
+git clone https://github.com/ParthM200/policy-compass.git
+cd policy-compass
+npm install
+npm start
+```
+
+Opens the app at http://localhost:3000, connected to the live Firebase project
+(Auth + Firestore). Sign up, log in, and upload/preview a PDF - all of this
+works immediately, no setup or API keys required.
+
+The "Analyze" (Gemini) and "Push to Jira" features run on Cloud Functions,
+which are not deployed by default (they require Firebase's paid Blaze plan).
+To try those features, run them locally with the emulator - see
+[AI analysis and Jira (optional)](#ai-analysis-and-jira-optional).
 
 ## How it works
 
@@ -31,73 +42,48 @@ pushed directly to Jira as tickets.
 - Google Gemini API (`@google/generative-ai`)
 - Jira Cloud REST API
 
-## Prerequisites
+## AI analysis and Jira (optional)
 
-- Node.js 18+ (Cloud Functions run on Node 22)
-- [Firebase CLI](https://firebase.google.com/docs/cli) (`npm install -g firebase-tools`)
-- A Firebase account with access to this project (or your own Firebase
-  project - see [Deploying to your own project](#deploying-to-your-own-project))
-
-## Getting started
+This is the recommended way to test "Analyze" and "Push to Jira" - it's free
+and doesn't require the Blaze plan.
 
 ```bash
-git clone <this-repo>
-cd policy-compass
-
-# Frontend dependencies
-npm install
-
-# Cloud Functions dependencies
 cd functions && npm install && cd ..
+cp functions/.env.example functions/.env
 ```
 
-### Run the frontend
+Fill in `functions/.env`:
+
+- `GEMINI_API_KEY` - from [Google AI Studio](https://aistudio.google.com/app/apikey)
+  (free tier is sufficient)
+- `JIRA_URL`, `JIRA_PROJECT_KEY`, `JIRA_EMAIL`, `JIRA_API_TOKEN` - only needed
+  for the "Push to Jira" feature
+
+Start the emulators:
 
 ```bash
-npm start
+firebase emulators:start --only auth,functions,firestore
 ```
 
-Opens the app at http://localhost:3000. By default this talks to the live
-Firestore and Authentication in the `policy-compass-parthm` Firebase project,
-so login/signup work immediately. The "Analyze" and "Push to Jira" features
-need the Cloud Functions emulator (below) unless functions have been deployed.
+This serves Auth, Firestore, and Functions emulators with a local UI at
+http://localhost:4000. (Drop `--only` to also start the Hosting emulator, if
+port 5000 is free on your machine.)
 
-### Run everything locally (Cloud Functions emulator)
+Point the frontend at the emulators by adding to `src/firebase/config.js`:
 
-This is the recommended way to test the AI analysis and Jira integration -
-it's free and doesn't require the Blaze plan.
+```js
+import { connectFunctionsEmulator } from "firebase/functions";
+import { connectFirestoreEmulator } from "firebase/firestore";
+import { connectAuthEmulator } from "firebase/auth";
 
-1. Copy `functions/.env.example` to `functions/.env` and fill in:
-   - `GEMINI_API_KEY` - from [Google AI Studio](https://aistudio.google.com/app/apikey)
-     (free tier is sufficient)
-   - `JIRA_URL`, `JIRA_PROJECT_KEY`, `JIRA_EMAIL`, `JIRA_API_TOKEN` - only needed
-     for the "Push to Jira" feature
+if (process.env.NODE_ENV === "development") {
+  connectFunctionsEmulator(getFunctions(), "localhost", 5001);
+  connectFirestoreEmulator(db, "localhost", 8080);
+  connectAuthEmulator(auth, "http://localhost:9099");
+}
+```
 
-2. Start the emulators:
-
-   ```bash
-   firebase emulators:start --only auth,functions,firestore
-   ```
-
-   This serves Auth, Firestore, and Functions emulators with a local UI at
-   http://localhost:4000. (Drop `--only` to also start the Hosting emulator,
-   if port 5000 is free on your machine.)
-
-3. Point the frontend at the emulators by adding to `src/firebase/config.js`:
-
-   ```js
-   import { connectFunctionsEmulator } from "firebase/functions";
-   import { connectFirestoreEmulator } from "firebase/firestore";
-   import { connectAuthEmulator } from "firebase/auth";
-
-   if (process.env.NODE_ENV === "development") {
-     connectFunctionsEmulator(getFunctions(), "localhost", 5001);
-     connectFirestoreEmulator(db, "localhost", 8080);
-     connectAuthEmulator(auth, "http://localhost:9099");
-   }
-   ```
-
-   then run `npm start` in another terminal.
+then run `npm start` in another terminal.
 
 ## Deploying
 
